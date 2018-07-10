@@ -28,39 +28,24 @@ $ sh kill.sh
 ```
 
 ## List of Endpoint
-- Show folders
 ```
+// Show folders
 $ curl http://127.0.0.1:5000/folders
 $ curl http://127.0.0.1:5000/folder/<FOLDER_ID>
 
-```
-
-- Show survey
-```
+// Show survey
 $ curl http://127.0.0.1:5000/survey/<SURVEY_ID>
 
-```
-
-- Show Datapoint 
-```
+// Show Datapoint 
 $ curl http://127.0.0.1:5000/datapoint/<DATAPOINT_ID>
 
-```
-
-- Show Answers 
-```
+// Show Answers 
 $ curl http://127.0.0.1:5000/collections/<SURVEY_ID>/<FORM_ID>
 
-```
-
-- Download Data 
-```
+// Download Data 
 $ curl http://127.0.0.1:5000/download/<SURVEY_ID>/
 
-```
-
-- Add Price 
-```
+// Add Price 
 $ curl http://127.0.0.1:5000/addprice/
 
 ```
