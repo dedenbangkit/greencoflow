@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, request
-from app.config import requestURI, postURI, keymd5, payload
+from datetime import datetime
+from app.config import requestURI, postURI, keymd5, payload, accounts, headers
 from app.api import getResponse, getForm, setQuestionAttr, setData
 import xmltodict
 import requests
@@ -60,23 +61,99 @@ def getData(survey_id, form_id):
     collections = []
     data = getResponse(requestURI + '/surveys/' + survey_id)
     data['meta_url'] = request.host_url + 'datapoint/' + data['id']
+    # submitter ID
+    submitter_id = data['name'].split('_')[1]
+    acc_detail = None
+    for account in accounts:
+        if account['id'] == submitter_id:
+            acc_detail = account
+    meta = data['forms'][0]['questionGroups'][0]['questions']
+    for form in data['forms']:
+        par_id = form['questionGroups'][0]['id']
+        answers = getResponse(requestURI + '/form_instances?survey_id=' + survey_id + '&form_id=' + form_id)
+        for answer in answers['formInstances']:
+            resp = [
+                {'key':'keymd5', 'value':keymd5},
+                {'key':'ACC_ID', 'value': submitter_id},
+            ]
+            for mt in meta:
+                try:
+                    values = answer['responses'][par_id][0][mt['id']]
+                    if mt['type'] == 'CASCADE':
+                        resp.append({'key':'ID_Commodity', 'value':values[2]['code']})
+                        resp.append({'key':'ID_Agency', 'value':values[1]['code']})
+                    elif mt['type'] == 'DATE':
+                        new_date = datetime.strptime(values[:10],'%Y-%m-%d')
+                        new_date = datetime.strftime(new_date,'%d/%m/%Y')
+                        resp.append({'key':'Date_var', 'value':new_date})
+                    else:
+                        resp.append({'key':mt['variableName'],'value':str(values)})
+                except:
+                    resp.append({'key':mt['variableName'],'value':'0'})
+            url = postURI + '/login_return_ACC_ID'
+            login = payload([
+                {'key':'keymd5', 'value':keymd5},
+                {'key':'acc_name', 'value':acc_detail['name']},
+                {'key':'acc_pass', 'value':acc_detail['pass']}
+            ])
+            u = requests.post(url, data = login, headers = headers)
+            uid = xmltodict.parse(u.text)
+            ids = uid['short']['#text']
+            if ids == '0':
+                log = 'error login'
+            else:
+                url = postURI + '/add_price_return_newid'
+                r = requests.post(url, data = payload(resp), headers = headers)
+                log = r.text
+            collections.append({
+                'id': answer['id'],
+                'submitter':answer['submitter'],
+                'identifier':answer['identifier'],
+                'device':answer['deviceIdentifier'],
+                'submited_at':answer['submissionDate'],
+                'login':acc_detail,
+                'payload':payload(resp),
+                'response':log
+            })
+    return jsonify(collections)
+
+
+@app.route('/input-list/<survey_id>/<form_id>')
+def inputList(survey_id, form_id):
+    collections = []
+    data = getResponse(requestURI + '/surveys/' + survey_id)
+    data['meta_url'] = request.host_url + 'datapoint/' + data['id']
+    # submitter ID
+    submitter_id = data['name'].split('_')[1]
     meta = data['forms'][0]['questionGroups'][0]['questions']
     for form in data['forms']:
         par_id = form['questionGroups'][0]['id']
         answers = getResponse(requestURI + '/form_instances?survey_id=' + survey_id + '&form_id=' + form_id)
         for answer in answers['formInstances']:
             resp = []
-            for mt in meta:
-                values = answer['responses'][par_id][0][mt['id']]
-                apps = {
-                    'val' : values,
-                    'type' : mt['type'],
-                    'var' : mt['variableName']
-                }
-                resp.append(apps)
+            for x, mt in enumerate(meta):
+                try:
+                    values = answer['responses'][par_id][0][mt['id']]
+                    if mt['type'] == 'CASCADE':
+                        apps = {
+                            ''
+                        }
+                    apps = {
+                        'val' : values,
+                        'type' : mt['type'],
+                        'var' : mt['variableName']
+                    }
+                    resp.append(apps)
+                except:
+                    resp.append({
+                        'val' : 0,
+                        'type' : mt['type'],
+                        'var' : mt['variableName']
+                    })
             collections.append({
                 'id': answer['id'],
                 'submitter':answer['submitter'],
+                'submitter_id': submitter_id,
                 'identifier':answer['identifier'],
                 'device':answer['deviceIdentifier'],
                 'submited_at':answer['submissionDate'],
@@ -115,7 +192,6 @@ def login():
         {'key':'acc_name', 'value':'trang123'},
         {'key':'acc_pass', 'value':'1234'},
     ])
-    headers = {'Content-Type': 'application/x-www-form-urlencoded'}
     u = requests.post(url, data = data, headers = headers)
     uid = xmltodict.parse(u.text)
     ids = uid['short']['#text']
