@@ -4,7 +4,7 @@
 ca-certificates=2018.03.07=0
 certifi=2018.4.16=py36_0
 click=6.7=py36hec950be_0
-flask=0.12.2=py36h5658096_0
+flask=0.12.3=py36h5658096_0
 intel-openmp=2018.0.0=8
 itsdangerous=0.24=py36h49fbb8d_1
 jinja2=2.10.1=py36hd36f9c5_0
